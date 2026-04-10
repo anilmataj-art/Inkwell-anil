@@ -1,0 +1,2385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>inkwell.</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,700;1,700&family=Merriweather:wght@300;400&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #1a1814;
+  --ink-soft: #5a5650;
+  --ink-ghost: #9a948e;
+  --paper: #faf8f4;
+  --paper-warm: #f0ebe1;
+  --paper-dark: #dfd8cc;
+  --accent: #8B5E3C;
+  --accent-light: #f5ede3;
+  --danger: #c94040;
+  --lh: 32px;
+}
+body.light-theme {
+  --ink: #1a1814;
+  --ink-soft: #5a5650;
+  --ink-ghost: #9a948e;
+  --paper: #faf8f4;
+  --paper-warm: #f0ebe1;
+  --paper-dark: #dfd8cc;
+  --accent: #8B5E3C;
+  --accent-light: #f5ede3;
+  --danger: #c94040;
+}
+body.dark-theme {
+  --ink: #e2dbd0;
+  --ink-soft: #a8a49e;
+  --ink-ghost: #6a6660;
+  --paper: #1c1a16;
+  --paper-warm: #222018;
+  --paper-dark: #2c2920;
+  --accent: #c4956a;
+  --accent-light: #2a2218;
+  --danger: #e05555;
+}
+html, body { height: 100%; overflow: hidden; }
+body { font-family: 'Lora', Georgia, serif; background: var(--paper); color: var(--ink); }
+.app { display: grid; grid-template-columns: 240px 1fr; height: 100vh; transition: grid-template-columns 0.3s ease; }
+.app.sidebar-collapsed { grid-template-columns: 0px 1fr; }
+
+/* SIDEBAR */
+.sidebar { background: var(--paper-warm); border-right: 1px solid var(--paper-dark); display: flex; flex-direction: column; overflow: hidden; position: relative; transition: transform 0.3s ease; }
+.app.sidebar-collapsed .sidebar { transform: translateX(-100%); border-right: none; }
+.sb-head { padding: 18px 14px 12px; border-bottom: 1px solid var(--paper-dark); }
+.brand { font-size: 20px; font-weight: 500; color: var(--accent); font-style: italic; margin-bottom: 12px; letter-spacing: 0.03em; display: flex; align-items: center; justify-content: space-between; }
+.settings-btn { background: none; border: none; color: var(--ink-ghost); font-size: 18px; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: all 0.15s; }
+.settings-btn:hover { color: var(--accent); background: var(--paper-dark); }
+.new-btn { width: 100%; padding: 8px 12px; background: var(--accent); color: #faf8f4; border: none; border-radius: 4px; font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 0.05em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.15s; }
+.new-btn:hover { opacity: 0.82; }
+.search-wrap { padding: 8px 12px; border-bottom: 1px solid var(--paper-dark); }
+.search-input { width: 100%; background: var(--paper); border: 1px solid var(--paper-dark); border-radius: 4px; padding: 6px 10px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink); outline: none; }
+.search-input::placeholder { color: var(--ink-ghost); }
+.search-input:focus { border-color: var(--accent); }
+.notes-list { flex: 1; overflow-y: auto; }
+.notes-list::-webkit-scrollbar { width: 3px; }
+.notes-list::-webkit-scrollbar-thumb { background: var(--paper-dark); }
+.sec-lbl { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: var(--ink-ghost); text-transform: uppercase; padding: 10px 14px 3px; }
+.note-item { padding: 9px 14px; cursor: pointer; border-left: 2px solid transparent; position: relative; transition: all 0.1s; }
+.note-item:hover { background: var(--paper-dark); }
+.note-item.active { background: var(--accent-light); border-left-color: var(--accent); }
+.ni-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.ni-preview { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-ghost); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ni-date { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-ghost); margin-top: 3px; }
+.ni-del { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--ink-ghost); font-size: 18px; cursor: pointer; opacity: 0; padding: 2px 6px; line-height: 1; border-radius: 3px; }
+.note-item:hover .ni-del { opacity: 1; }
+	.ni-del:hover { color: var(--danger); background: rgba(201,64,64,0.08); }
+	.ni-type-badge { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--ink-ghost); background: var(--paper-dark); border-radius: 3px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+	.ni-type-badge.canvas { color: var(--accent); background: var(--accent-light); }
+	
+	/* FOLDERS */
+	.folder-item { margin-bottom: 2px; }
+	.folder-head { padding: 8px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--accent); background: rgba(139,94,60,0.05); border-bottom: 1px solid var(--paper-dark); transition: background 0.1s; position: relative; }
+	.folder-head:hover { background: var(--paper-dark); }
+	.folder-toggle { font-size: 10px; transition: transform 0.2s; color: var(--ink-ghost); }
+	.folder-item.open .folder-toggle { transform: rotate(90deg); }
+	.folder-notes { display: none; padding-left: 12px; border-left: 1px solid var(--paper-dark); margin-left: 18px; }
+	.folder-item.open .folder-notes { display: block; }
+	.folder-del { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--ink-ghost); font-size: 16px; cursor: pointer; opacity: 0; padding: 2px 6px; }
+	.folder-head:hover .folder-del { opacity: 1; }
+	.folder-del:hover { color: var(--danger); }
+	
+	/* DRAG & DROP */
+	.note-item.dragging { opacity: 0.5; background: var(--accent-light); }
+	.note-item.drag-over { border: 2px dashed var(--accent); background: var(--accent-light); }
+	.folder-head.drag-over { border: 2px dashed var(--accent); background: var(--accent-light); }
+
+/* SETTINGS MODAL */
+.settings-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: none; align-items: center; justify-content: center; }
+.settings-overlay.open { display: flex; }
+.settings-modal { background: var(--paper); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); width: 320px; overflow: hidden; }
+.settings-header { padding: 16px 20px; border-bottom: 1px solid var(--paper-dark); display: flex; align-items: center; justify-content: space-between; }
+.settings-title { font-size: 16px; font-weight: 500; color: var(--ink); }
+.settings-close { background: none; border: none; color: var(--ink-ghost); font-size: 20px; cursor: pointer; padding: 4px; border-radius: 4px; }
+.settings-close:hover { color: var(--ink); background: var(--paper-dark); }
+.settings-body { padding: 20px; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--paper-dark); }
+.setting-row:last-child { border-bottom: none; }
+.setting-label { font-size: 14px; color: var(--ink); }
+.setting-desc { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-ghost); margin-top: 2px; }
+.theme-toggle { display: flex; background: var(--paper-dark); border-radius: 20px; padding: 3px; }
+.theme-btn { padding: 6px 14px; border-radius: 16px; border: none; font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--ink-ghost); }
+	.theme-btn.active { background: var(--paper); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+	
+	.shortcut-list { margin-top: 10px; max-height: 200px; overflow-y: auto; border: 1px solid var(--paper-dark); border-radius: 4px; padding: 5px; width: 100%; }
+	.shortcut-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--paper-dark); font-size: 12px; }
+	.shortcut-item:last-child { border-bottom: none; }
+	.shortcut-key { font-family: 'DM Mono', monospace; background: var(--paper-dark); padding: 2px 6px; border-radius: 3px; cursor: pointer; min-width: 60px; text-align: center; }
+	.shortcut-key:hover { background: var(--accent-light); color: var(--accent); }
+	.shortcut-key.recording { background: var(--accent); color: #fff; animation: pulse 1s infinite; }
+	@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+	/* EDITOR PANE */
+.editor-pane { display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+	.title-bar { padding: 14px 28px 12px; border-bottom: 1px solid var(--paper-dark); flex-shrink: 0; display: flex; align-items: center; gap: 10px; position: relative; }
+	.sidebar-toggle { background: none; border: 1px solid var(--paper-dark); border-radius: 4px; color: var(--ink-ghost); font-size: 14px; padding: 4px 8px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+	.sidebar-toggle:hover { color: var(--accent); background: var(--paper-dark); }
+.note-title-input { flex: 1; font-family: 'Lora', Georgia, serif; font-size: 24px; font-weight: 500; color: var(--ink); background: none; border: none; outline: none; }
+.note-title-input::placeholder { color: var(--ink-ghost); font-style: italic; }
+.title-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-ghost); white-space: nowrap; }
+.del-btn { background: none; border: 1px solid var(--paper-dark); border-radius: 4px; color: var(--ink-ghost); font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 10px; cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+.del-btn:hover { border-color: var(--danger); color: var(--danger); background: rgba(201,64,64,0.05); }
+
+/* Note type toggle button */
+.note-type-toggle {
+  display: flex;
+  background: var(--paper-dark);
+  border-radius: 20px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+.ntt-btn {
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--ink-ghost);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.ntt-btn.active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.ntt-btn.canvas-active {
+  background: var(--accent);
+  color: #faf8f4;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* TOOLBAR */
+.fmt-bar { padding: 5px 20px; border-bottom: 1px solid var(--paper-dark); background: var(--paper-warm); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex-shrink: 0; }
+.fsep { width: 1px; height: 18px; background: var(--paper-dark); margin: 0 2px; flex-shrink: 0; }
+.fb { background: none; border: 1px solid transparent; border-radius: 3px; color: var(--ink-soft); font-size: 13px; padding: 3px 7px; cursor: pointer; line-height: 1.4; transition: all 0.1s; min-width: 28px; text-align: center; font-family: 'DM Mono', monospace; }
+.fb:hover { background: var(--paper-dark); border-color: var(--paper-dark); color: var(--ink); }
+.fsel { background: none; border: 1px solid var(--paper-dark); border-radius: 3px; color: var(--ink-soft); font-family: 'DM Mono', monospace; font-size: 11px; padding: 3px 5px; cursor: pointer; outline: none; }
+.fsel:hover, .fsel:focus { border-color: var(--accent); color: var(--ink); }
+.cswatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.1s, border-color 0.1s; flex-shrink: 0; }
+.cswatch:hover { transform: scale(1.25); }
+.cswatch.sel { border-color: var(--ink); }
+.tag-pill { font-family: 'DM Mono', monospace; font-size: 11px; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--paper-dark); color: var(--accent); background: var(--accent-light); cursor: pointer; white-space: nowrap; }
+.tag-pill:hover { border-color: var(--accent); }
+.tag-inp { font-family: 'DM Mono', monospace; font-size: 11px; background: none; border: none; border-bottom: 1px solid var(--paper-dark); color: var(--ink); outline: none; width: 64px; padding: 1px 2px; }
+.tag-inp::placeholder { color: var(--ink-ghost); }
+
+/* EDITOR SCROLL + RULED LINES */
+.editor-scroll { flex: 1; overflow-y: auto; position: relative; }
+.editor-scroll::-webkit-scrollbar { width: 3px; }
+.editor-scroll::-webkit-scrollbar-thumb { background: var(--paper-dark); }
+
+.ruled-bg {
+  position: absolute;
+  top: 16px; left: 0; right: 0; bottom: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 31px,
+    rgba(139,94,60,0.13) 31px,
+    rgba(139,94,60,0.13) 32px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.editor-inner { position: relative; z-index: 1; padding: 16px 36px 60px; min-height: 100%; }
+
+#noteEditor {
+  outline: none;
+  min-height: 400px;
+  line-height: var(--lh);
+  font-size: 16px;
+  font-family: 'Lora', Georgia, serif;
+  color: var(--ink);
+  word-break: break-word;
+}
+#noteEditor:empty::before { content: attr(data-placeholder); color: var(--ink-ghost); font-style: italic; pointer-events: none; display: block; }
+#noteEditor p, #noteEditor div { line-height: var(--lh); margin: 0; }
+#noteEditor br { line-height: var(--lh); }
+
+/* Checklist */
+#checklistArea { margin-top: 4px; }
+.ci { display: flex; align-items: center; gap: 8px; min-height: var(--lh); }
+.ci input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+.ci-txt { flex: 1; background: none; border: none; outline: none; font-family: 'Lora', Georgia, serif; font-size: 16px; color: var(--ink); line-height: var(--lh); min-width: 0; }
+.ci.done .ci-txt { text-decoration: line-through; color: var(--ink-ghost); }
+.ci-rm { background: none; border: none; color: var(--ink-ghost); font-size: 16px; cursor: pointer; opacity: 0; padding: 0 4px; line-height: 1; }
+.ci:hover .ci-rm { opacity: 1; }
+.ci-rm:hover { color: var(--danger); }
+
+/* Footer badges */
+.foot { position: absolute; bottom: 10px; right: 16px; display: flex; gap: 16px; align-items: center; z-index: 10; pointer-events: none; }
+.wc { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-ghost); }
+.sv { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-ghost); transition: color 0.3s; }
+.sv.ok { color: #5c8a5c; }
+
+/* Action buttons container */
+.action-buttons { position: absolute; bottom: 10px; right: 16px; display: flex; gap: 8px; align-items: center; z-index: 10; }
+.action-btn { background: var(--accent); color: #faf8f4; border: none; border-radius: 4px; font-family: 'DM Mono', monospace; font-size: 11px; padding: 6px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+.action-btn:hover { opacity: 0.85; }
+.action-btn svg { flex-shrink: 0; }
+
+/* Export dropdown */
+.export-dropdown { position: relative; }
+.export-dropdown-content { display: none; position: absolute; bottom: 100%; right: 0; background: var(--paper); border: 1px solid var(--paper-dark); border-radius: 4px; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); margin-bottom: 4px; overflow: hidden; }
+.export-dropdown.open .export-dropdown-content { display: block; }
+.export-option { display: block; width: 100%; padding: 8px 14px; background: none; border: none; text-align: left; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.export-option:hover { background: var(--paper-dark); }
+.export-option.pdf-opt { color: #c94040; }
+.export-option.doc-opt { color: #5a6e8c; }
+
+/* Import file input (hidden) */
+#importInput { display: none; }
+
+/* Empty state */
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink-ghost); gap: 8px; }
+.eg { font-size: 30px; color: var(--accent); opacity: 0.3; font-style: italic; }
+.et { font-style: italic; font-size: 15px; }
+.es { font-family: 'DM Mono', monospace; font-size: 11px; }
+
+/* ===================== CANVAS DRAWING MODE ===================== */
+#canvasShell {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Drawing toolbar */
+.draw-toolbar {
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--paper-dark);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+.dt-sep { width: 1px; height: 22px; background: var(--paper-dark); margin: 0 3px; flex-shrink: 0; }
+.dt-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink-soft);
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 30px;
+  position: relative;
+}
+.dt-btn:hover { background: var(--paper-dark); border-color: var(--paper-dark); color: var(--ink); }
+.dt-btn.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.dt-btn title-tooltip { display: none; }
+.dt-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-ghost); white-space: nowrap; }
+.dt-range { width: 70px; accent-color: var(--accent); cursor: pointer; }
+.dt-color-input { width: 28px; height: 28px; border: 2px solid var(--paper-dark); border-radius: 50%; cursor: pointer; padding: 0; background: none; outline: none; overflow: hidden; }
+.dt-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.dt-color-input::-webkit-color-swatch { border: none; border-radius: 50%; }
+.dt-select {
+  background: var(--paper);
+  border: 1px solid var(--paper-dark);
+  border-radius: 4px;
+  color: var(--ink-soft);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 4px 6px;
+  cursor: pointer;
+  outline: none;
+}
+.dt-select:focus { border-color: var(--accent); }
+
+/* Canvas area with layers panel */
+.canvas-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Layers panel */
+.layers-panel {
+  width: 160px;
+  background: var(--paper-warm);
+  border-right: 1px solid var(--paper-dark);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.layers-head {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--paper-dark);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.layers-title { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-ghost); text-transform: uppercase; letter-spacing: 0.08em; }
+.layers-add { background: none; border: none; color: var(--accent); font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; border-radius: 3px; }
+.layers-add:hover { background: var(--paper-dark); }
+.layers-list { flex: 1; overflow-y: auto; }
+.layers-list::-webkit-scrollbar { width: 3px; }
+.layers-list::-webkit-scrollbar-thumb { background: var(--paper-dark); }
+.layer-item {
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all 0.1s;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.layer-item:hover { background: var(--paper-dark); }
+.layer-item.active { background: var(--accent-light); border-left-color: var(--accent); color: var(--ink); }
+.layer-thumb {
+  width: 28px;
+  height: 20px;
+  border: 1px solid var(--paper-dark);
+  border-radius: 2px;
+  background: white;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.layer-thumb canvas { width: 100%; height: 100%; }
+.layer-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layer-vis { background: none; border: none; color: var(--ink-ghost); font-size: 13px; cursor: pointer; padding: 1px 3px; border-radius: 2px; flex-shrink: 0; }
+.layer-vis:hover { color: var(--ink); background: var(--paper-dark); }
+.layer-del { background: none; border: none; color: var(--ink-ghost); font-size: 14px; cursor: pointer; padding: 1px 3px; border-radius: 2px; flex-shrink: 0; opacity: 0; }
+.layer-item:hover .layer-del { opacity: 1; }
+.layer-del:hover { color: var(--danger); }
+
+/* Canvas container */
+.canvas-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: #e8e4dc;
+  background-image: radial-gradient(circle, rgba(139,94,60,0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+  cursor: crosshair;
+}
+.canvas-container::-webkit-scrollbar { width: 6px; height: 6px; }
+.canvas-container::-webkit-scrollbar-thumb { background: var(--paper-dark); border-radius: 3px; }
+.canvas-wrapper {
+  position: relative;
+  display: inline-block;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  margin: 24px;
+}
+.draw-layer-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  display: block;
+}
+.draw-layer-canvas:last-child {
+  position: relative;
+}
+
+/* Text input overlay */
+#canvasTextInput {
+  position: absolute;
+  display: none;
+  border: 1.5px dashed var(--accent);
+  background: transparent;
+  outline: none;
+  font-family: 'Lora', Georgia, serif;
+  font-size: 18px;
+  color: #000;
+  padding: 2px 4px;
+  min-width: 80px;
+  min-height: 28px;
+  resize: both;
+  overflow: hidden;
+  z-index: 100;
+  line-height: 1.4;
+  white-space: pre;
+}
+
+/* Selection overlay */
+#selectionOverlay {
+  position: absolute;
+  border: 1.5px dashed var(--accent);
+  background: rgba(139,94,60,0.06);
+  display: none;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Canvas action buttons */
+.canvas-action-buttons {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 20;
+}
+
+/* Opacity display */
+.dt-val { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-ghost); min-width: 28px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <aside class="sidebar">
+    <div class="sb-head">
+      <div class="brand">
+        <span>inkwell.</span>
+        <button class="settings-btn" onclick="openSettings()" title="Settings">&#9881;</button>
+      </div>
+      <button class="new-btn" onclick="newNote()"><span style="font-size:16px;line-height:1;">+</span> new note</button>
+    </div>
+    <div class="search-wrap">
+      <input class="search-input" type="text" placeholder="search notes…" oninput="filterNotes(this.value)" />
+    </div>
+    <div class="notes-list" id="notesList"></div>
+  </aside>
+
+  <main class="editor-pane" id="editorPane">
+    <div class="empty-state" id="emptyState">
+      <div class="eg">&#10022;</div>
+      <div class="et">no note open</div>
+      <div class="es">create or select a note to begin</div>
+    </div>
+
+    <div id="shell" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
+
+      <div class="title-bar">
+        <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <input type="text" id="titleInp" class="note-title-input" placeholder="untitled note…" oninput="onTitle()" />
+        <span class="title-meta" id="dateLbl"></span>
+
+        <!-- Note type toggle -->
+        <div class="note-type-toggle" id="noteTypeToggle" title="Switch between text and canvas note">
+          <button class="ntt-btn active" id="nttText" onclick="switchNoteType('text')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            text
+          </button>
+          <button class="ntt-btn" id="nttCanvas" onclick="switchNoteType('canvas')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+            canvas
+          </button>
+        </div>
+
+        <button class="del-btn" id="delBtn">delete note</button>
+      </div>
+
+      <!-- TEXT NOTE CONTENT -->
+      <div id="textNoteContent" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="fmt-bar">
+          <select class="fsel" onchange="cmd('fontName',this.value)" title="Font family">
+            <option value="Lora,Georgia,serif">Lora</option>
+            <option value="'Playfair Display',serif">Playfair</option>
+            <option value="Merriweather,serif">Merriweather</option>
+            <option value="'DM Mono',monospace">Mono</option>
+            <option value="Georgia,serif">Georgia</option>
+            <option value="Roboto,sans-serif">Roboto</option>
+            <option value="'Open Sans',sans-serif">Open Sans</option>
+          </select>
+          <select class="fsel" onchange="cmd('fontSize',this.value)" title="Font size">
+            <option value="1">10</option>
+            <option value="2">13</option>
+            <option value="3" selected>16</option>
+            <option value="4">18</option>
+            <option value="5">24</option>
+            <option value="6">32</option>
+            <option value="7">48</option>
+          </select>
+          <div class="fsep"></div>
+          <button class="fb" onclick="cmd('bold')" title="Bold"><b>B</b></button>
+          <button class="fb" onclick="cmd('italic')" title="Italic"><i>I</i></button>
+          <button class="fb" onclick="cmd('underline')" title="Underline"><u>U</u></button>
+          <button class="fb" onclick="cmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
+          <div class="fsep"></div>
+          <button class="fb" onclick="cmd('justifyLeft')" title="Left">&#8676;</button>
+          <button class="fb" onclick="cmd('justifyCenter')" title="Center">&#8596;</button>
+          <button class="fb" onclick="cmd('justifyRight')" title="Right">&#8677;</button>
+          <div class="fsep"></div>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--ink-ghost);">color</span>
+          <div class="cswatch sel" style="background:#1a1814;" onclick="setClr('#1a1814',this)" title="Ink"></div>
+          <div class="cswatch" style="background:#8B5E3C;" onclick="setClr('#8B5E3C',this)" title="Amber"></div>
+          <div class="cswatch" style="background:#5c7a5a;" onclick="setClr('#5c7a5a',this)" title="Sage"></div>
+          <div class="cswatch" style="background:#5a6e8c;" onclick="setClr('#5a6e8c',this)" title="Slate"></div>
+          <div class="cswatch" style="background:#9b5c6a;" onclick="setClr('#9b5c6a',this)" title="Rose"></div>
+          <div class="cswatch" style="background:#a8a49e;" onclick="setClr('#a8a49e',this)" title="Muted"></div>
+          <div class="cswatch" style="background:#c94040;" onclick="setClr('#c94040',this)" title="Red"></div>
+          <div class="cswatch" style="background:#ffffff;border-color:#ddd;" onclick="setClr('#ffffff',this)" title="White"></div>
+          <div class="fsep"></div>
+          <button class="fb" onclick="addCI()" title="Add checklist item" style="font-size:12px;padding:3px 8px;">&#9745; list</button>
+          <button class="fb" onclick="insertTable()" title="Insert table" style="font-size:12px;padding:3px 8px;">&#9638; table</button>
+          <div class="fsep"></div>
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;" id="tagArea">
+            <div id="tagList" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+            <input class="tag-inp" id="tagInp" type="text" placeholder="+ tag" onkeydown="tagKey(event)" />
+          </div>
+        </div>
+
+        <div class="editor-scroll" id="edScroll">
+          <div class="ruled-bg"></div>
+          <div class="editor-inner">
+            <div id="noteEditor" contenteditable="true" data-placeholder="begin writing…"
+                 oninput="onBody()" onkeydown="edKey(event)"></div>
+            <div id="ciArea"></div>
+          </div>
+        </div>
+
+        <!-- Action Buttons for text note -->
+        <div class="action-buttons" id="actionButtons" style="display:none;">
+          <button class="action-btn" onclick="document.getElementById('importInput').click()" title="Import .docx, .doc, or .pdf">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            import
+          </button>
+          <input type="file" id="importInput" accept=".docx,.doc,.pdf" onchange="handleImport(event)" />
+
+          <div class="export-dropdown" id="exportDropdown">
+            <button class="action-btn" onclick="toggleExportDropdown()" id="exportBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              export
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:2px;">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="export-dropdown-content">
+              <button class="export-option pdf-opt" onclick="exportNote('pdf')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle;">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                Export as PDF
+              </button>
+              <button class="export-option doc-opt" onclick="exportNote('doc')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle;">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                Export as DOC
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CANVAS NOTE CONTENT -->
+      <div id="canvasNoteContent" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+
+        <!-- Drawing toolbar -->
+        <div class="draw-toolbar" id="drawToolbar">
+
+          <!-- Tools group -->
+          <span class="dt-label">tools</span>
+          <button class="dt-btn active" id="dtPen" onclick="setDrawTool('pen')" title="Pen">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+          </button>
+          <button class="dt-btn" id="dtBrush" onclick="setDrawTool('brush')" title="Brush">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1 1 2.48 1.02 3.5 1.02 2.2 0 3-1.8 3-3.02 0-1.67-1.33-3.04-1.5-3.04z"/></svg>
+          </button>
+          <button class="dt-btn" id="dtEraser" onclick="setDrawTool('eraser')" title="Eraser">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l10-10 7 7-3.5 3.5"/><path d="M6.0001 20L18 8"/></svg>
+          </button>
+          <button class="dt-btn" id="dtFill" onclick="setDrawTool('fill')" title="Fill / Bucket">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v7"/><path d="M3 15h18"/><path d="M3 19h18"/><path d="M21 11v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-8"/></svg>
+          </button>
+          <button class="dt-btn" id="dtText" onclick="setDrawTool('text')" title="Text Tool">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          </button>
+          <button class="dt-btn" id="dtSelect" onclick="setDrawTool('select')" title="Select / Move">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+          </button>
+
+          <div class="dt-sep"></div>
+
+          <!-- Shapes group -->
+          <span class="dt-label">shape</span>
+          <select class="dt-select" id="dtShapeSelect" onchange="setDrawTool('shape')" title="Shape">
+            <option value="none">—</option>
+            <option value="rect">Rectangle</option>
+            <option value="ellipse">Ellipse</option>
+            <option value="line">Line</option>
+            <option value="arrow">Arrow</option>
+            <option value="triangle">Triangle</option>
+            <option value="star">Star</option>
+          </select>
+          <button class="dt-btn" id="dtShapeBtn" onclick="setDrawTool('shape')" title="Draw Shape" style="font-size:13px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          </button>
+
+          <div class="dt-sep"></div>
+
+          <!-- Brush type -->
+          <span class="dt-label">brush</span>
+          <select class="dt-select" id="dtBrushType" onchange="updateBrushType(this.value)" title="Brush Type">
+            <option value="round">Round</option>
+            <option value="flat">Flat</option>
+            <option value="spray">Spray</option>
+            <option value="marker">Marker</option>
+            <option value="pencil">Pencil</option>
+            <option value="watercolor">Watercolor</option>
+          </select>
+
+          <div class="dt-sep"></div>
+
+          <!-- Stroke thickness -->
+          <span class="dt-label">size</span>
+          <input type="range" class="dt-range" id="dtSize" min="1" max="80" value="4" oninput="updateStrokeSize(this.value)" title="Stroke Size" />
+          <span class="dt-val" id="dtSizeVal">4</span>
+
+          <div class="dt-sep"></div>
+
+          <!-- Stroke opacity -->
+          <span class="dt-label">opacity</span>
+          <input type="range" class="dt-range" id="dtOpacity" min="1" max="100" value="100" oninput="updateOpacity(this.value)" title="Opacity" />
+          <span class="dt-val" id="dtOpacityVal">100%</span>
+
+          <div class="dt-sep"></div>
+
+          <!-- Colors -->
+          <span class="dt-label">color</span>
+          <input type="color" class="dt-color-input" id="dtStrokeColor" value="#1a1814" onchange="updateStrokeColor(this.value)" title="Stroke Color" />
+          <input type="color" class="dt-color-input" id="dtFillColor" value="#ffffff" onchange="updateFillColor(this.value)" title="Fill Color" />
+          <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--ink-ghost);">str/fill</span>
+
+          <!-- Quick color swatches -->
+          <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;">
+            <div class="cswatch" style="background:#1a1814;width:16px;height:16px;" onclick="quickColor('#1a1814')" title="Ink"></div>
+            <div class="cswatch" style="background:#ffffff;border-color:#ccc;width:16px;height:16px;" onclick="quickColor('#ffffff')" title="White"></div>
+            <div class="cswatch" style="background:#8B5E3C;width:16px;height:16px;" onclick="quickColor('#8B5E3C')" title="Amber"></div>
+            <div class="cswatch" style="background:#c94040;width:16px;height:16px;" onclick="quickColor('#c94040')" title="Red"></div>
+            <div class="cswatch" style="background:#5c7a5a;width:16px;height:16px;" onclick="quickColor('#5c7a5a')" title="Sage"></div>
+            <div class="cswatch" style="background:#5a6e8c;width:16px;height:16px;" onclick="quickColor('#5a6e8c')" title="Slate"></div>
+            <div class="cswatch" style="background:#f5c842;width:16px;height:16px;" onclick="quickColor('#f5c842')" title="Yellow"></div>
+            <div class="cswatch" style="background:#9b5c6a;width:16px;height:16px;" onclick="quickColor('#9b5c6a')" title="Rose"></div>
+          </div>
+
+          <div class="dt-sep"></div>
+
+          <!-- Fill shapes toggle -->
+          <button class="dt-btn" id="dtFillShape" onclick="toggleFillShape()" title="Toggle shape fill">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          </button>
+
+          <div class="dt-sep"></div>
+
+          <!-- Photo import -->
+          <button class="dt-btn" onclick="document.getElementById('canvasPhotoInput').click()" title="Import Photo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </button>
+          <input type="file" id="canvasPhotoInput" accept="image/*" style="display:none;" onchange="importCanvasPhoto(event)" />
+
+          <div class="dt-sep"></div>
+
+          <!-- Undo / Redo -->
+          <button class="dt-btn" onclick="canvasUndo()" title="Undo (Ctrl+Z)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+          </button>
+          <button class="dt-btn" onclick="canvasRedo()" title="Redo (Ctrl+Y)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+          </button>
+          <button class="dt-btn" onclick="clearCurrentLayer()" title="Clear Layer" style="color:var(--danger);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+
+          <div class="dt-sep"></div>
+
+          <!-- Export canvas -->
+          <button class="dt-btn" onclick="exportCanvas()" title="Export as PNG" style="font-size:11px;padding:4px 8px;font-family:'DM Mono',monospace;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:3px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            png
+          </button>
+
+          <div class="dt-sep"></div>
+          <span class="dt-label">zoom</span>
+          <span class="dt-val" id="zoomVal" style="min-width:35px;">100%</span>
+          <button class="dt-btn" onclick="canvasZoom=1;updateCanvasTransform();" title="Reset Zoom">1:1</button>
+        </div>
+
+        <!-- Canvas area with layers panel -->
+        <div class="canvas-area">
+          <!-- Layers panel -->
+          <div class="layers-panel" id="layersPanel">
+            <div class="layers-head">
+              <span class="layers-title">Layers</span>
+              <button class="layers-add" onclick="addLayer()" title="Add Layer">+</button>
+            </div>
+            <div class="layers-list" id="layersList"></div>
+          </div>
+
+          <!-- Canvas container -->
+          <div class="canvas-container" id="canvasContainer" onwheel="handleWheel(event)">
+            <div id="canvasZoomWrapper" style="transform-origin: top left;">
+              <div class="canvas-wrapper" id="canvasWrapper">
+                <!-- Canvases are injected here by JS -->
+                <textarea id="canvasTextInput" spellcheck="false"></textarea>
+                <div id="selectionOverlay" class="selection-overlay"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- end canvasNoteContent -->
+
+    </div><!-- end shell -->
+
+    <div class="foot">
+      <span class="sv" id="svBadge"></span>
+      <span class="wc" id="wcBadge">0 words</span>
+    </div>
+  </main>
+</div>
+
+<!-- Settings Modal -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOnOverlay(event)">
+  <div class="settings-modal">
+    <div class="settings-header">
+      <span class="settings-title">Settings</span>
+      <button class="settings-close" onclick="closeSettings()">&times;</button>
+    </div>
+    <div class="settings-body">
+	      <div class="setting-row">
+	        <div class="setting-label">
+	          Theme
+	          <div class="setting-desc">Switch between light and dark</div>
+	        </div>
+	        <div class="theme-toggle">
+	          <button class="theme-btn" id="lightBtn" onclick="setTheme('light')">
+	            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;">
+	              <circle cx="12" cy="12" r="5"/>
+	              <line x1="12" y1="1" x2="12" y2="3"/>
+	              <line x1="12" y1="21" x2="12" y2="23"/>
+	              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+	              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+	              <line x1="1" y1="12" x2="3" y2="12"/>
+	              <line x1="21" y1="12" x2="23" y2="12"/>
+	              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+	              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+	            </svg>
+	            Light
+	          </button>
+	          <button class="theme-btn" id="darkBtn" onclick="setTheme('dark')">
+	            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;">
+	              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+	            </svg>
+	            Dark
+	          </button>
+	        </div>
+	      </div>
+
+	      <div class="setting-row" style="flex-direction:column;align-items:flex-start;">
+	        <div class="setting-label">
+	          Shortcuts
+	          <div class="setting-desc">Click a key to rebind</div>
+	        </div>
+	        <div class="shortcut-list" id="shortcutList"></div>
+	      </div>
+	    </div>
+	  </div>
+	</div>
+
+<script>
+/* ============================================================
+   CORE DATA & UTILITIES
+   ============================================================ */
+const SKEY = 'inkwell_v4';
+const THEME_KEY = 'inkwell_theme';
+let notes=[], folders=[], activeId=null, svTimer=null, filterQ='';
+window.notes = notes; window.folders = folders;
+
+const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ============================================================
+   THEME
+   ============================================================ */
+function initTheme(){
+  const saved=localStorage.getItem(THEME_KEY);
+  if(saved){
+    document.body.classList.remove('light-theme','dark-theme');
+    document.body.classList.add(saved+'-theme');
+  } else {
+    if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.add('light-theme');
+    }
+  }
+  updateThemeButtons();
+}
+
+function setTheme(theme){
+  document.body.classList.remove('light-theme','dark-theme');
+  document.body.classList.add(theme+'-theme');
+  localStorage.setItem(THEME_KEY,theme);
+  updateThemeButtons();
+}
+
+function updateThemeButtons(){
+  const isDark=document.body.classList.contains('dark-theme');
+  document.getElementById('lightBtn').classList.toggle('active',!isDark);
+  document.getElementById('darkBtn').classList.toggle('active',isDark);
+}
+
+function toggleSidebar(){
+  document.getElementById('app').classList.toggle('sidebar-collapsed');
+  const isCollapsed = document.getElementById('app').classList.contains('sidebar-collapsed');
+  localStorage.setItem('inkwell_sidebar_collapsed', isCollapsed);
+}
+
+function initSidebar(){
+  const isCollapsed = localStorage.getItem('inkwell_sidebar_collapsed') === 'true';
+  if(isCollapsed) document.getElementById('app').classList.add('sidebar-collapsed');
+}
+
+function openSettings(){
+  document.getElementById('settingsOverlay').classList.add('open');
+  const theme=document.body.classList.contains('dark-theme')?'dark':'light';
+  document.getElementById('lightBtn').classList.toggle('active',theme==='light');
+  document.getElementById('darkBtn').classList.toggle('active',theme==='dark');
+  renderShortcutSettings();
+}
+
+let recordingAction = null;
+
+function renderShortcutSettings() {
+  const list = document.getElementById('shortcutList');
+  const labels = {
+    newText: 'New Text Note',
+    newCanvas: 'New Canvas Note',
+    undo: 'Undo',
+    redo: 'Redo',
+    save: 'Save',
+    deleteNote: 'Delete Note',
+    pen: 'Pen Tool',
+    brush: 'Brush Tool',
+    eraser: 'Eraser Tool',
+    fill: 'Fill Tool',
+    text: 'Text Tool',
+    select: 'Select Tool',
+    shape: 'Shape Tool'
+  };
+  
+  list.innerHTML = Object.keys(shortcuts).map(action => {
+    const s = shortcuts[action];
+    const keyStr = (s.ctrl ? 'Ctrl+' : '') + (s.shift ? 'Shift+' : '') + (s.alt ? 'Alt+' : '') + s.key.toUpperCase();
+    return `
+      <div class="shortcut-item">
+        <span>${labels[action] || action}</span>
+        <span class="shortcut-key ${recordingAction === action ? 'recording' : ''}" 
+              onclick="recordShortcut('${action}')">${recordingAction === action ? 'Press key...' : keyStr}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function recordShortcut(action) {
+  recordingAction = action;
+  renderShortcutSettings();
+  
+  const handler = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Ignore modifier-only presses
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+    
+    shortcuts[recordingAction] = {
+      key: e.key.toLowerCase(),
+      ctrl: e.ctrlKey || e.metaKey,
+      shift: e.shiftKey,
+      alt: e.altKey
+    };
+    
+    localStorage.setItem('inkwell_shortcuts', JSON.stringify(shortcuts));
+    recordingAction = null;
+    renderShortcutSettings();
+    window.removeEventListener('keydown', handler, true);
+  };
+  
+  window.addEventListener('keydown', handler, true);
+}
+function closeSettings(){ document.getElementById('settingsOverlay').classList.remove('open'); }
+function closeSettingsOnOverlay(e){ if(e.target===document.getElementById('settingsOverlay'))closeSettings(); }
+
+/* ============================================================
+   PERSISTENCE
+   ============================================================ */
+function save(){
+  // Save canvas data per note
+  if(activeId){
+    const n=notes.find(x=>x.id===activeId);
+    if(n && n.type==='canvas'){
+      n.canvasData=exportAllLayersData();
+    }
+  }
+  try{ 
+    localStorage.setItem(SKEY,JSON.stringify(notes)); 
+    localStorage.setItem(SKEY+'_folders',JSON.stringify(folders));
+  }catch(e){}
+}
+
+function load(){
+  initTheme();
+  try{
+    const raw=localStorage.getItem(SKEY);
+    if(raw) notes=JSON.parse(raw);
+    const fraw=localStorage.getItem(SKEY+'_folders');
+    if(fraw) folders=JSON.parse(fraw);
+  }catch(e){ notes=[]; folders=[]; }
+  renderList();
+  if(notes.length){
+    const sorted=notes.slice().sort((a,b)=>b.updated-a.updated);
+    openNote(sorted[0].id);
+  }
+}
+
+function fmtDate(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    +' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ============================================================
+   NOTE LIST
+   ============================================================ */
+function renderList(){
+  const el=document.getElementById('notesList');
+  let list=notes.slice().sort((a,b)=>b.updated-a.updated);
+  if(filterQ) list=list.filter(n=>(n.title||'').toLowerCase().includes(filterQ)||(n.body||'').toLowerCase().includes(filterQ));
+
+  const pinned=list.filter(n=>n.pinned);
+  const rest=list.filter(n=>!n.pinned && !n.folderId);
+
+  let html='';
+  
+  // Render Folders
+  folders.forEach(f => {
+    const fNotes = list.filter(n => n.folderId === f.id);
+    html += `
+      <div class="folder-item ${f.open?'open':''}" id="folder-${f.id}">
+        <div class="folder-head" 
+             onclick="toggleFolder('${f.id}')"
+             ondragover="onDragOver(event)" 
+             ondragleave="onDragLeave(event)" 
+             ondrop="onDrop(event, 'folder', '${f.id}')">
+          <span class="folder-toggle">▶</span>
+          <span class="folder-name">${esc(f.name)}</span>
+          <button class="folder-del" onclick="event.stopPropagation();deleteFolder('${f.id}')">×</button>
+        </div>
+        <div class="folder-notes">
+          ${fNotes.map(noteItemHTML).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  if(pinned.length){
+    html+='<div class="sec-lbl">pinned</div>';
+    html+=pinned.map(noteItemHTML).join('');
+  }
+  if(rest.length){
+    if(folders.length) html+='<div class="sec-lbl">notes</div>';
+    html+=rest.map(noteItemHTML).join('');
+  }
+  if(!list.length && !folders.length) html='<div style="padding:20px 14px;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--ink-ghost);">no notes yet</div>';
+  el.innerHTML=html;
+}
+
+function noteItemHTML(n){
+  const isCanvas=n.type==='canvas';
+  const badge=isCanvas?'<span class="ni-type-badge canvas">canvas</span>':'';
+  const preview=isCanvas?'[drawing]':(n.body||'').replace(/<[^>]+>/g,'').slice(0,60)||'no content';
+  return `<div class="note-item${n.id===activeId?' active':''}" 
+               draggable="true" 
+               ondragstart="onDragStart(event, '${n.id}')"
+               ondragover="onDragOver(event)" 
+               ondragleave="onDragLeave(event)" 
+               ondrop="onDrop(event, 'note', '${n.id}')"
+               onclick="openNote('${n.id}')">
+    <div class="ni-title">${esc(n.title||'untitled')}${badge}</div>
+    <div class="ni-preview">${esc(preview)}</div>
+    <div class="ni-date">${fmtDate(n.updated)}</div>
+    <div style="position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;gap:2px;">
+      ${n.folderId ? `<button class="ni-del" style="font-size:12px;" onclick="event.stopPropagation();moveOutOfFolder('${n.id}')" title="Move out of folder">↖</button>` : ''}
+      <button class="ni-del" onclick="event.stopPropagation();deleteNote('${n.id}')">×</button>
+    </div>
+  </div>`;
+}
+
+function moveOutOfFolder(id){
+  const n=notes.find(x=>x.id===id);
+  if(n){ delete n.folderId; save(); renderList(); }
+}
+
+/* ---- Folder & Drag Logic ---- */
+function toggleFolder(id){
+  const f=folders.find(x=>x.id===id);
+  if(f){ f.open=!f.open; save(); renderList(); }
+}
+
+function deleteFolder(id){
+  if(!confirm('Delete folder? Notes inside will be moved out.')) return;
+  notes.forEach(n => { if(n.folderId===id) delete n.folderId; });
+  folders=folders.filter(x=>x.id!==id);
+  save(); renderList();
+}
+
+function onDragStart(e, id){
+  e.dataTransfer.setData('noteId', id);
+  e.target.classList.add('dragging');
+}
+
+function onDragOver(e){
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onDrop(e, targetType, targetId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const draggedId = e.dataTransfer.getData('noteId');
+  if(!draggedId || draggedId === targetId) return;
+
+  if(targetType === 'folder'){
+    // Move note into existing folder
+    const n = notes.find(x=>x.id===draggedId);
+    if(n){
+      n.folderId = targetId;
+      const f = folders.find(x=>x.id===targetId);
+      if(f) f.open = true;
+      save(); renderList();
+    }
+  } else if(targetType === 'note'){
+    // Create new folder from two notes
+    const name = prompt('Enter folder name:', 'New Folder');
+    if(!name) return;
+    const fId = uid();
+    folders.push({id: fId, name, open: true});
+    const n1 = notes.find(x=>x.id===draggedId);
+    const n2 = notes.find(x=>x.id===targetId);
+    if(n1) n1.folderId = fId;
+    if(n2) n2.folderId = fId;
+    save(); renderList();
+  }
+}
+
+/* ============================================================
+   OPEN / CREATE / DELETE NOTES
+   ============================================================ */
+function openNote(id){
+  // Save current canvas before switching
+  if(activeId){
+    const prev=notes.find(x=>x.id===activeId);
+    if(prev && prev.type==='canvas'){
+      prev.canvasData=exportAllLayersData();
+    }
+  }
+
+  activeId=id;
+  const n=notes.find(x=>x.id===id);
+  if(!n) return;
+
+  document.getElementById('shell').style.display='flex';
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('titleInp').value=n.title||'';
+  document.getElementById('dateLbl').textContent=fmtDate(n.updated);
+  document.getElementById('delBtn').onclick=()=>deleteCurrentNote();
+
+  if(n.type==='canvas'){
+    showCanvasMode();
+    setTimeout(()=>loadCanvasNote(n),50);
+  } else {
+    showTextMode();
+    document.getElementById('noteEditor').innerHTML=n.body||'';
+    renderCI(n.checklist||[]);
+    renderTags(n.tags||[]);
+    updateWC();
+    document.getElementById('actionButtons').style.display='flex';
+  }
+
+  renderList();
+}
+
+function showTextMode(){
+  document.getElementById('textNoteContent').style.display='flex';
+  document.getElementById('canvasNoteContent').style.display='none';
+  document.getElementById('nttText').classList.add('active');
+  document.getElementById('nttText').classList.remove('canvas-active');
+  document.getElementById('nttCanvas').classList.remove('active','canvas-active');
+  document.getElementById('wcBadge').style.display='';
+}
+
+function showCanvasMode(){
+  document.getElementById('textNoteContent').style.display='none';
+  document.getElementById('canvasNoteContent').style.display='flex';
+  document.getElementById('nttCanvas').classList.add('canvas-active');
+  document.getElementById('nttCanvas').classList.remove('active');
+  document.getElementById('nttText').classList.remove('active','canvas-active');
+  document.getElementById('wcBadge').style.display='none';
+  document.getElementById('actionButtons').style.display='none';
+}
+
+function switchNoteType(type){
+  const n=notes.find(x=>x.id===activeId);
+  if(!n) return;
+
+  if(type==='canvas' && n.type!=='canvas'){
+    n.type='canvas';
+    if(!n.canvasLayers) n.canvasLayers=null;
+    n.updated=Date.now();
+    save();
+    showCanvasMode();
+    setTimeout(()=>loadCanvasNote(n),50);
+  } else if(type==='text' && n.type==='canvas'){
+    // Save canvas first
+    n.canvasData=exportAllLayersData();
+    n.type='text';
+    n.updated=Date.now();
+    save();
+    showTextMode();
+    document.getElementById('noteEditor').innerHTML=n.body||'';
+    renderCI(n.checklist||[]);
+    renderTags(n.tags||[]);
+    updateWC();
+    document.getElementById('actionButtons').style.display='flex';
+  }
+  renderList();
+}
+
+function newNote(){
+  const n={id:uid(),title:'',body:'',checklist:[],tags:[],type:'text',created:Date.now(),updated:Date.now()};
+  notes.unshift(n);save();renderList();openNote(n.id);
+  setTimeout(()=>document.getElementById('titleInp').focus(),30);
+}
+
+function deleteNote(id){
+  if(!confirm('Delete this note? This cannot be undone.'))return;
+  notes=notes.filter(n=>n.id!==id);save();
+  if(activeId===id){
+    activeId=null;
+    document.getElementById('shell').style.display='none';
+    document.getElementById('emptyState').style.display='flex';
+    document.getElementById('actionButtons').style.display='none';
+    if(notes.length){
+      const sorted=notes.slice().sort((a,b)=>b.updated-a.updated);
+      openNote(sorted[0].id);
+    }
+  } else {
+    renderList();
+  }
+}
+
+function deleteCurrentNote(){
+  if(activeId) deleteNote(activeId);
+}
+
+function filterNotes(q){ filterQ=q.trim().toLowerCase(); renderList(); }
+
+function onTitle(){
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  n.title=document.getElementById('titleInp').value;
+  n.updated=Date.now();document.getElementById('dateLbl').textContent=fmtDate(n.updated);
+  scheduleSave();
+}
+
+function onBody(){
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  n.body=document.getElementById('noteEditor').innerHTML;
+  n.updated=Date.now();document.getElementById('dateLbl').textContent=fmtDate(n.updated);
+  updateWC();scheduleSave();
+}
+
+function scheduleSave(){
+  const b=document.getElementById('svBadge');b.textContent='saving…';b.className='sv';
+  clearTimeout(svTimer);
+  svTimer=setTimeout(()=>{save();renderList();b.textContent='saved';b.className='sv ok';setTimeout(()=>{b.textContent='';},2000);},800);
+}
+
+function updateWC(){
+  const t=(document.getElementById('noteEditor').innerText||'').trim();
+  const c=t?t.split(/\s+/).length:0;
+  document.getElementById('wcBadge').textContent=`${c} ${c===1?'word':'words'}`;
+}
+
+function cmd(command,val){
+  document.getElementById('noteEditor').focus();
+  document.execCommand(command,false,val||null);
+  onBody();
+}
+
+function setClr(hex,el){
+  document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel'));
+  el.classList.add('sel');cmd('foreColor',hex);
+}
+
+function insertTable(){
+  const rows=prompt('Number of rows:', '3');
+  const cols=prompt('Number of columns:', '3');
+  if(!rows || !cols) return;
+  const r=parseInt(rows),c=parseInt(cols);
+  if(isNaN(r)||isNaN(c)||r<1||c<1){alert('Invalid dimensions');return;}
+  let html='<table style="border-collapse:collapse;width:100%;margin:8px 0;">';
+  for(let i=0;i<r;i++){
+    html+='<tr>';
+    for(let j=0;j<c;j++)html+='<td style="border:1px solid #ccc;padding:6px;">&nbsp;</td>';
+    html+='</tr>';
+  }
+  html+='</table>';
+  cmd('insertHTML',html);
+  onBody();
+}
+
+function edKey(e){}
+
+/* ============================================================
+   CHECKLIST
+   ============================================================ */
+function renderCI(items){
+  document.getElementById('ciArea').innerHTML=items.map(it=>`
+    <div class="ci${it.done?' done':''}" id="ci-${it.id}">
+      <input type="checkbox" ${it.done?'checked':''} onchange="toggleCI('${it.id}',this.checked)"/>
+      <input class="ci-txt" type="text" value="${esc(it.text)}" placeholder="checklist item…"
+        oninput="editCI('${it.id}',this.value)"
+        onkeydown="ciKey(event,'${it.id}')"/>
+      <button class="ci-rm" onclick="removeCI('${it.id}')">×</button>
+    </div>`).join('');
+}
+
+function addCI(){
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  if(!n.checklist)n.checklist=[];
+  const it={id:uid(),text:'',done:false};
+  n.checklist.push(it);n.updated=Date.now();save();renderCI(n.checklist);
+  const inp=document.querySelector(`#ci-${it.id} .ci-txt`);if(inp)inp.focus();
+}
+
+function toggleCI(id,done){
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  const it=n.checklist.find(x=>x.id===id);if(!it)return;
+  it.done=done;n.updated=Date.now();save();
+  const row=document.getElementById('ci-'+id);if(row)row.className='ci'+(done?' done':'');
+}
+
+function editCI(id,val){
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  const it=n.checklist.find(x=>x.id===id);if(!it)return;
+  it.text=val;n.updated=Date.now();scheduleSave();
+}
+
+function removeCI(id){
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  n.checklist=n.checklist.filter(x=>x.id!==id);n.updated=Date.now();save();renderCI(n.checklist);
+}
+
+function ciKey(e,id){
+  if(e.key==='Enter'){e.preventDefault();addCI();}
+  if(e.key==='Backspace'&&e.target.value===''){e.preventDefault();removeCI(id);}
+}
+
+/* ============================================================
+   TAGS
+   ============================================================ */
+function renderTags(tags){
+  document.getElementById('tagList').innerHTML=tags.map(t=>
+    `<span class="tag-pill" onclick="removeTag('${esc(t)}')" title="Remove">${esc(t)} ×</span>`
+  ).join('');
+}
+
+function tagKey(e){
+  if(e.key!=='Enter')return;
+  const f=document.getElementById('tagInp');
+  const v=f.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  if(!v)return;
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  if(!n.tags)n.tags=[];
+  if(!n.tags.includes(v))n.tags.push(v);
+  f.value='';renderTags(n.tags);save();
+}
+
+function removeTag(t){
+  const n=notes.find(x=>x.id===activeId);if(!n)return;
+  n.tags=(n.tags||[]).filter(x=>x!==t);renderTags(n.tags);save();
+}
+
+/* ============================================================
+   EXPORT / IMPORT (TEXT NOTES)
+   ============================================================ */
+function toggleExportDropdown(){
+  document.getElementById('exportDropdown').classList.toggle('open');
+}
+function closeExportDropdown(){
+  document.getElementById('exportDropdown').classList.remove('open');
+}
+document.addEventListener('click',function(e){
+  const dropdown=document.getElementById('exportDropdown');
+  if(dropdown && !dropdown.contains(e.target)) closeExportDropdown();
+});
+
+function exportNote(format){
+  const n=notes.find(x=>x.id===activeId);
+  if(!n) return;
+  closeExportDropdown();
+  if(format==='pdf') exportAsPDF(n);
+  else exportAsDOC(n);
+}
+
+function exportAsPDF(n){
+  const title=n.title||'Untitled Note';
+  const editorEl=document.getElementById('noteEditor');
+  const pdfContent=document.createElement('div');
+  pdfContent.style.cssText='padding:40px;font-family:Lora,Georgia,serif;font-size:14px;line-height:1.6;color:#1a1814;background:#faf8f4;max-width:800px;';
+  const titleEl=document.createElement('h1');
+  titleEl.style.cssText='font-size:24px;font-weight:500;margin-bottom:8px;color:#1a1814;';
+  titleEl.textContent=title;
+  pdfContent.appendChild(titleEl);
+  const dateEl=document.createElement('div');
+  dateEl.style.cssText='font-family:monospace;font-size:11px;color:#9a948e;margin-bottom:24px;';
+  dateEl.textContent='Last updated: '+fmtDate(n.updated);
+  pdfContent.appendChild(dateEl);
+  const contentClone=editorEl.cloneNode(true);
+  contentClone.style.cssText='font-family:Lora,Georgia,serif;line-height:1.6;';
+  pdfContent.appendChild(contentClone);
+  if(n.checklist && n.checklist.length>0){
+    const checklistDiv=document.createElement('div');
+    checklistDiv.style.cssText='margin-top:20px;';
+    const checklistTitle=document.createElement('strong');
+    checklistTitle.textContent='Checklist:';
+    checklistDiv.appendChild(checklistTitle);
+    checklistDiv.appendChild(document.createElement('br'));
+    n.checklist.forEach(item=>{
+      const itemDiv=document.createElement('div');
+      itemDiv.style.cssText='margin:4px 0;';
+      const checkbox=document.createElement('span');
+      checkbox.textContent=item.done?'[x] ':'[ ] ';
+      checkbox.style.cssText='font-family:monospace;';
+      itemDiv.appendChild(checkbox);
+      itemDiv.appendChild(document.createTextNode(item.text));
+      checklistDiv.appendChild(itemDiv);
+    });
+    pdfContent.appendChild(checklistDiv);
+  }
+  if(n.tags && n.tags.length>0){
+    const tagsDiv=document.createElement('div');
+    tagsDiv.style.cssText='margin-top:20px;font-size:12px;color:#666;';
+    const tagsTitle=document.createElement('strong');
+    tagsTitle.textContent='Tags: ';
+    tagsDiv.appendChild(tagsTitle);
+    tagsDiv.appendChild(document.createTextNode(n.tags.join(', ')));
+    pdfContent.appendChild(tagsDiv);
+  }
+  const opt={
+    margin:10,
+    filename:title.replace(/[^a-z0-9]/gi,'_').toLowerCase()+'.pdf',
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  };
+  html2pdf().set(opt).from(pdfContent).save();
+}
+
+function exportAsDOC(n){
+  const title=n.title||'Untitled Note';
+  const editorEl=document.getElementById('noteEditor');
+  let htmlContent=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>body{font-family:Georgia,serif;font-size:14pt;line-height:1.6;color:#1a1814;margin:40pt;}</style>
+</head><body>
+<h1>${esc(title)}</h1>
+<div style="font-size:10pt;color:#9a948e;margin-bottom:20pt;">Last updated: ${fmtDate(n.updated)}</div>
+<div>${editorEl.innerHTML}</div>`;
+  if(n.checklist && n.checklist.length>0){
+    htmlContent+='<div style="margin-top:20pt;"><strong>Checklist:</strong><br>';
+    n.checklist.forEach(item=>{
+      htmlContent+=`<div>${item.done?'[x]':'[ ]'} ${esc(item.text)}</div>`;
+    });
+    htmlContent+='</div>';
+  }
+  if(n.tags && n.tags.length>0){
+    htmlContent+=`<div style="margin-top:20pt;font-size:10pt;color:#9a948e;"><strong>Tags:</strong> ${n.tags.map(t=>esc(t)).join(', ')}</div>`;
+  }
+  htmlContent+='</body></html>';
+  const blob=new Blob([htmlContent],{type:'application/msword'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=title.replace(/[^a-z0-9]/gi,'_').toLowerCase()+'.doc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function handleImport(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='pdf') importPDF(file);
+  else if(ext==='docx') importDOCX(file);
+  else if(ext==='doc') importDOC(file);
+  else alert('Unsupported file format.');
+  event.target.value='';
+}
+
+function importPDF(file){
+  const n={id:uid(),title:file.name.replace(/\.[^/.]+$/,''),body:`<p><em>PDF imported from ${esc(file.name)}.</em></p>`,checklist:[],tags:['imported'],type:'text',created:Date.now(),updated:Date.now()};
+  notes.unshift(n);save();renderList();openNote(n.id);
+  alert('PDF imported as a reference note.');
+}
+
+function importDOCX(file){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    mammoth.convertToHtml({arrayBuffer:e.target.result})
+      .then(function(result){
+        const n={id:uid(),title:file.name.replace(/\.[^/.]+$/,''),body:result.value,checklist:[],tags:['imported'],type:'text',created:Date.now(),updated:Date.now()};
+        notes.unshift(n);save();renderList();openNote(n.id);
+      })
+      .catch(function(err){ alert('Error importing DOCX file.'); });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function importDOC(file){
+  const n={id:uid(),title:file.name.replace(/\.[^/.]+$/,''),body:`<p><em>Document imported from ${esc(file.name)}.</em></p>`,checklist:[],tags:['imported'],type:'text',created:Date.now(),updated:Date.now()};
+  notes.unshift(n);save();renderList();openNote(n.id);
+}
+
+/* ============================================================
+   ██████╗ ██████╗  █████╗ ██╗    ██╗██╗███╗   ██╗ ██████╗
+   ██╔══██╗██╔══██╗██╔══██╗██║    ██║██║████╗  ██║██╔════╝
+   ██║  ██║██████╔╝███████║██║ █╗ ██║██║██╔██╗ ██║██║  ███╗
+   ██║  ██║██╔══██╗██╔══██║██║███╗██║██║██║╚██╗██║██║   ██║
+   ██████╔╝██║  ██║██║  ██║╚███╔███╔╝██║██║ ╚████║╚██████╔╝
+   ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚══╝╚══╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝
+   CANVAS ENGINE
+   ============================================================ */
+
+const CANVAS_W = 1400;
+const CANVAS_H = 900;
+
+// Drawing state
+let drawTool = 'pen';
+let strokeColor = '#1a1814';
+let fillColor = '#ffffff';
+let strokeSize = 4;
+let strokeOpacity = 1.0;
+let brushType = 'round';
+let fillShapes = false;
+let isDrawing = false;
+let lastX = 0, lastY = 0;
+let startX = 0, startY = 0;
+let shapeType = 'rect';
+let snapshotBeforeShape = null;
+let canvasZoom = 1.0;
+
+// Selection state
+let selActive = false;
+let selX=0, selY=0, selW=0, selH=0;
+let selImageData = null;
+let selMoving = false;
+let selMoveStartX=0, selMoveStartY=0;
+
+// Text state
+let textActive = false;
+let textX=0, textY=0;
+
+// Layers
+let layers = [];       // [{id, name, visible, canvas, ctx}]
+let activeLayerIdx = 0;
+
+// Undo/redo per layer
+let undoStacks = {};   // {layerId: [imageData, ...]}
+let redoStacks = {};
+
+// Spray interval
+let sprayInterval = null;
+
+/* ---- Layer management ---- */
+function createLayerCanvas(){
+  const c = document.createElement('canvas');
+  c.width = CANVAS_W;
+  c.height = CANVAS_H;
+  c.classList.add('draw-layer-canvas');
+  return c;
+}
+
+function addLayer(name){
+  const id = uid();
+  const canvas = createLayerCanvas();
+  const ctx = canvas.getContext('2d');
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const layerName = name || 'Layer '+(layers.length+1);
+  const layer = {id, name:layerName, visible:true, canvas, ctx};
+  layers.push(layer);
+  undoStacks[id] = [];
+  redoStacks[id] = [];
+
+  // Insert canvas into wrapper (before text input and selection overlay)
+  const wrapper = document.getElementById('canvasWrapper');
+  const textInput = document.getElementById('canvasTextInput');
+  wrapper.insertBefore(canvas, textInput);
+
+  // Reposition canvases
+  repositionCanvases();
+  setActiveLayer(layers.length-1);
+  renderLayersPanel();
+  return layer;
+}
+
+function repositionCanvases(){
+  layers.forEach((l,i)=>{
+    l.canvas.style.position = i===0 ? 'relative' : 'absolute';
+    l.canvas.style.top = '0';
+    l.canvas.style.left = '0';
+    l.canvas.style.zIndex = String(i+1);
+    l.canvas.style.display = l.visible ? '' : 'none';
+    l.canvas.style.pointerEvents = (i===layers.length-1) ? 'auto' : 'none';
+  });
+  // Active layer gets pointer events
+  layers.forEach((l,i)=>{
+    l.canvas.style.pointerEvents = (i===activeLayerIdx) ? 'auto' : 'none';
+  });
+}
+
+function setActiveLayer(idx){
+  activeLayerIdx = Math.max(0, Math.min(idx, layers.length-1));
+  repositionCanvases();
+  renderLayersPanel();
+  updateLayerThumbnails();
+}
+
+function removeLayer(idx){
+  if(layers.length<=1){ alert('Cannot delete the last layer.'); return; }
+  const l = layers[idx];
+  l.canvas.remove();
+  delete undoStacks[l.id];
+  delete redoStacks[l.id];
+  layers.splice(idx,1);
+  if(activeLayerIdx>=layers.length) activeLayerIdx=layers.length-1;
+  repositionCanvases();
+  renderLayersPanel();
+}
+
+function toggleLayerVisibility(idx){
+  layers[idx].visible = !layers[idx].visible;
+  layers[idx].canvas.style.display = layers[idx].visible ? '' : 'none';
+  renderLayersPanel();
+}
+
+function renderLayersPanel(){
+  const el = document.getElementById('layersList');
+  el.innerHTML = layers.map((l,i)=>`
+    <div class="layer-item${i===activeLayerIdx?' active':''}" onclick="setActiveLayer(${i})">
+      <div class="layer-thumb"><canvas id="lthumb-${l.id}" width="28" height="20"></canvas></div>
+      <span class="layer-name">${esc(l.name)}</span>
+      <button class="layer-vis" onclick="event.stopPropagation();toggleLayerVisibility(${i})" title="${l.visible?'Hide':'Show'}">${l.visible?'👁':'🚫'}</button>
+      <button class="layer-del" onclick="event.stopPropagation();removeLayer(${i})" title="Delete Layer">×</button>
+    </div>
+  `).reverse().join('');
+  updateLayerThumbnails();
+}
+
+function updateLayerThumbnails(){
+  layers.forEach(l=>{
+    const thumb = document.getElementById('lthumb-'+l.id);
+    if(thumb){
+      const tctx = thumb.getContext('2d');
+      tctx.clearRect(0,0,28,20);
+      tctx.drawImage(l.canvas, 0, 0, 28, 20);
+    }
+  });
+}
+
+/* ---- Load / Save canvas data ---- */
+function loadCanvasNote(n){
+  // Clear existing layers
+  layers.forEach(l=>l.canvas.remove());
+  layers=[];
+  undoStacks={};
+  redoStacks={};
+
+  if(n.canvasData && n.canvasData.length>0){
+    n.canvasData.forEach((ld,i)=>{
+      const layer = addLayer(ld.name);
+      if(ld.data){
+        const img = new Image();
+        img.onload=()=>{
+          layer.ctx.drawImage(img,0,0);
+          updateLayerThumbnails();
+        };
+        img.src=ld.data;
+      }
+      if(!ld.visible) toggleLayerVisibility(i);
+    });
+    setActiveLayer(0);
+  } else {
+    // Fresh canvas
+    addLayer('Background');
+    // Fill background white
+    const bg = layers[0];
+    bg.ctx.fillStyle='#ffffff';
+    bg.ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+    addLayer('Layer 1');
+    setActiveLayer(1);
+  }
+  attachCanvasEvents();
+}
+
+function exportAllLayersData(){
+  return layers.map(l=>({
+    id: l.id,
+    name: l.name,
+    visible: l.visible,
+    data: l.canvas.toDataURL('image/png')
+  }));
+}
+
+/* ---- Canvas events ---- */
+function attachCanvasEvents(){
+  // Remove old listeners by replacing canvases (already fresh)
+  // Attach to the top-most interactive canvas
+  layers.forEach(l=>{
+    l.canvas.addEventListener('mousedown', canvasMouseDown);
+    l.canvas.addEventListener('mousemove', canvasMouseMove);
+    l.canvas.addEventListener('mouseup', canvasMouseUp);
+    l.canvas.addEventListener('mouseleave', canvasMouseLeave);
+    // Touch
+    l.canvas.addEventListener('touchstart', canvasTouchStart, {passive:false});
+    l.canvas.addEventListener('touchmove', canvasTouchMove, {passive:false});
+    l.canvas.addEventListener('touchend', canvasTouchEnd);
+  });
+}
+
+function getCanvasPos(e, canvas){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = CANVAS_W / rect.width;
+  const scaleY = CANVAS_H / rect.height;
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
+  };
+}
+
+function handleWheel(e) {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const delta = -e.deltaY;
+  const factor = delta > 0 ? 1.1 : 0.9;
+  canvasZoom = Math.min(Math.max(0.1, canvasZoom * factor), 5);
+  updateCanvasTransform();
+}
+
+function updateCanvasTransform() {
+  const wrapper = document.getElementById('canvasZoomWrapper');
+  wrapper.style.transform = `scale(${canvasZoom})`;
+  document.getElementById('zoomVal').textContent = Math.round(canvasZoom * 100) + '%';
+}
+
+function canvasMouseDown(e){
+  if(e.button!==0) return;
+  const pos = getCanvasPos(e, layers[activeLayerIdx].canvas);
+  handleDrawStart(pos.x, pos.y, e);
+}
+function canvasMouseMove(e){
+  const pos = getCanvasPos(e, layers[activeLayerIdx].canvas);
+  handleDrawMove(pos.x, pos.y, e);
+}
+function canvasMouseUp(e){
+  const pos = getCanvasPos(e, layers[activeLayerIdx].canvas);
+  handleDrawEnd(pos.x, pos.y);
+}
+function canvasMouseLeave(e){
+  if(isDrawing) handleDrawEnd(lastX, lastY);
+}
+
+function canvasTouchStart(e){
+  e.preventDefault();
+  const t=e.touches[0];
+  const pos=getCanvasPos(t, layers[activeLayerIdx].canvas);
+  handleDrawStart(pos.x,pos.y,e);
+}
+function canvasTouchMove(e){
+  e.preventDefault();
+  const t=e.touches[0];
+  const pos=getCanvasPos(t, layers[activeLayerIdx].canvas);
+  handleDrawMove(pos.x,pos.y,e);
+}
+function canvasTouchEnd(e){
+  handleDrawEnd(lastX,lastY);
+}
+
+/* ---- Draw handlers ---- */
+function handleDrawStart(x, y, e){
+  const ctx = layers[activeLayerIdx].ctx;
+
+  if(drawTool==='text'){
+    commitText();
+    showTextInput(x, y);
+    return;
+  }
+
+  if(drawTool==='fill'){
+    pushUndo();
+    floodFill(ctx, Math.round(x), Math.round(y), hexToRgba(strokeColor, strokeOpacity));
+    updateLayerThumbnails();
+    scheduleSave();
+    return;
+  }
+
+  if(drawTool==='select'){
+    if(selActive && selImageData){
+      // Check if clicking inside selection to move
+      if(x>=selX && x<=selX+selW && y>=selY && y<=selY+selH){
+        selMoving=true;
+        selMoveStartX=x-selX;
+        selMoveStartY=y-selY;
+        return;
+      } else {
+        commitSelection();
+      }
+    }
+    isDrawing=true;
+    startX=x; startY=y;
+    selX=x; selY=y; selW=0; selH=0;
+    updateSelectionOverlay(x,y,0,0);
+    return;
+  }
+
+  pushUndo();
+  isDrawing=true;
+  startX=x; startY=y;
+  lastX=x; lastY=y;
+
+  if(drawTool==='shape'){
+    snapshotBeforeShape = ctx.getImageData(0,0,CANVAS_W,CANVAS_H);
+  }
+
+  if(drawTool==='pen'||drawTool==='brush'||drawTool==='eraser'){
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    applyContextStyle(ctx);
+    if(brushType==='spray' && drawTool==='brush'){
+      sprayAt(ctx,x,y);
+      sprayInterval=setInterval(()=>sprayAt(ctx,lastX,lastY),30);
+    } else {
+      ctx.lineTo(x+0.1,y+0.1);
+      ctx.stroke();
+    }
+  }
+}
+
+function handleDrawMove(x, y, e){
+  if(drawTool==='select' && selMoving){
+    const nx=x-selMoveStartX;
+    const ny=y-selMoveStartY;
+    const ctx=layers[activeLayerIdx].ctx;
+    // Clear old position
+    ctx.clearRect(selX,selY,selW,selH);
+    selX=nx; selY=ny;
+    // Draw at new position
+    if(selImageData){
+      const tmp=document.createElement('canvas');
+      tmp.width=selW; tmp.height=selH;
+      tmp.getContext('2d').putImageData(selImageData,0,0);
+      ctx.drawImage(tmp,selX,selY);
+    }
+    updateSelectionOverlay(selX,selY,selW,selH);
+    return;
+  }
+
+  if(drawTool==='select' && isDrawing){
+    selW=x-startX; selH=y-startY;
+    updateSelectionOverlay(startX,startY,selW,selH);
+    lastX=x; lastY=y;
+    return;
+  }
+
+  if(!isDrawing) return;
+  const ctx = layers[activeLayerIdx].ctx;
+  applyContextStyle(ctx);
+
+  if(drawTool==='pen'||drawTool==='brush'){
+    if(brushType==='spray' && drawTool==='brush'){
+      lastX=x; lastY=y;
+    } else if(brushType==='watercolor' && drawTool==='brush'){
+      ctx.globalAlpha=strokeOpacity*0.15;
+      ctx.lineWidth=strokeSize*2;
+      ctx.lineTo(x,y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+    } else if(brushType==='pencil' && drawTool==='brush'){
+      ctx.globalAlpha=strokeOpacity*0.6;
+      ctx.lineWidth=Math.max(1,strokeSize*0.5);
+      ctx.lineTo(x,y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+    } else if(brushType==='marker' && drawTool==='brush'){
+      ctx.globalAlpha=strokeOpacity*0.5;
+      ctx.lineWidth=strokeSize*2;
+      ctx.lineTo(x,y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+    } else if(brushType==='flat' && drawTool==='brush'){
+      ctx.lineCap='square';
+      ctx.lineTo(x,y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+    } else {
+      ctx.lineTo(x,y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+    }
+  } else if(drawTool==='eraser'){
+    ctx.lineTo(x,y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+  } else if(drawTool==='shape'){
+    // Restore snapshot and draw preview
+    if(snapshotBeforeShape) ctx.putImageData(snapshotBeforeShape,0,0);
+    drawShape(ctx, startX, startY, x, y);
+  }
+
+  lastX=x; lastY=y;
+}
+
+function handleDrawEnd(x, y){
+  if(drawTool==='select' && selMoving){
+    selMoving=false;
+    updateLayerThumbnails();
+    return;
+  }
+
+  if(drawTool==='select' && isDrawing){
+    isDrawing=false;
+    // Normalize selection
+    if(selW<0){ selX+=selW; selW=-selW; }
+    if(selH<0){ selY+=selH; selH=-selH; }
+    if(selW>2 && selH>2){
+      selActive=true;
+      const ctx=layers[activeLayerIdx].ctx;
+      selImageData=ctx.getImageData(selX,selY,selW,selH);
+      updateSelectionOverlay(selX,selY,selW,selH);
+    } else {
+      clearSelectionOverlay();
+    }
+    return;
+  }
+
+  if(!isDrawing) return;
+  isDrawing=false;
+
+  if(sprayInterval){ clearInterval(sprayInterval); sprayInterval=null; }
+
+  const ctx=layers[activeLayerIdx].ctx;
+  if(drawTool==='shape'){
+    if(snapshotBeforeShape) ctx.putImageData(snapshotBeforeShape,0,0);
+    applyContextStyle(ctx);
+    drawShape(ctx, startX, startY, x, y);
+    snapshotBeforeShape=null;
+  }
+
+  ctx.beginPath();
+  updateLayerThumbnails();
+  scheduleSave();
+}
+
+/* ---- Context style ---- */
+function applyContextStyle(ctx){
+  if(drawTool==='eraser'){
+    ctx.globalCompositeOperation='destination-out';
+    ctx.globalAlpha=1;
+    ctx.strokeStyle='rgba(0,0,0,1)';
+    ctx.lineWidth=strokeSize*2;
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+  } else {
+    ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=strokeOpacity;
+    ctx.strokeStyle=strokeColor;
+    ctx.lineWidth=strokeSize;
+    ctx.lineCap=(brushType==='flat'&&drawTool==='brush')?'square':'round';
+    ctx.lineJoin='round';
+  }
+}
+
+/* ---- Shape drawing ---- */
+function drawShape(ctx, x1, y1, x2, y2){
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=strokeOpacity;
+  ctx.strokeStyle=strokeColor;
+  ctx.lineWidth=strokeSize;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+
+  const w=x2-x1, h=y2-y1;
+  ctx.beginPath();
+
+  switch(shapeType){
+    case 'rect':
+      ctx.rect(x1,y1,w,h);
+      break;
+    case 'ellipse':
+      ctx.ellipse(x1+w/2, y1+h/2, Math.abs(w/2), Math.abs(h/2), 0, 0, Math.PI*2);
+      break;
+    case 'line':
+      ctx.moveTo(x1,y1);
+      ctx.lineTo(x2,y2);
+      break;
+    case 'arrow':
+      drawArrow(ctx,x1,y1,x2,y2);
+      break;
+    case 'triangle':
+      ctx.moveTo(x1+w/2,y1);
+      ctx.lineTo(x2,y2);
+      ctx.lineTo(x1,y2);
+      ctx.closePath();
+      break;
+    case 'star':
+      drawStar(ctx,x1+w/2,y1+h/2,Math.abs(w/2),Math.abs(h/2),5);
+      break;
+  }
+
+  if(fillShapes && shapeType!=='line' && shapeType!=='arrow'){
+    ctx.fillStyle=fillColor;
+    ctx.fill();
+  }
+  ctx.stroke();
+}
+
+function drawArrow(ctx,x1,y1,x2,y2){
+  const angle=Math.atan2(y2-y1,x2-x1);
+  const headLen=Math.min(20,Math.sqrt((x2-x1)**2+(y2-y1)**2)*0.3);
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x2,y2);
+  ctx.lineTo(x2-headLen*Math.cos(angle-Math.PI/6), y2-headLen*Math.sin(angle-Math.PI/6));
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-headLen*Math.cos(angle+Math.PI/6), y2-headLen*Math.sin(angle+Math.PI/6));
+}
+
+function drawStar(ctx,cx,cy,outerR,innerR,points){
+  const step=Math.PI/points;
+  ctx.moveTo(cx, cy-outerR);
+  for(let i=0;i<points*2;i++){
+    const r=(i%2===0)?outerR:innerR;
+    const a=i*step-Math.PI/2;
+    ctx.lineTo(cx+r*Math.cos(a), cy+r*Math.sin(a));
+  }
+  ctx.closePath();
+}
+
+/* ---- Spray brush ---- */
+function sprayAt(ctx,x,y){
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=strokeOpacity*0.1;
+  ctx.fillStyle=strokeColor;
+  const density=30;
+  const radius=strokeSize*3;
+  for(let i=0;i<density;i++){
+    const angle=Math.random()*Math.PI*2;
+    const r=Math.random()*radius;
+    ctx.beginPath();
+    ctx.arc(x+r*Math.cos(angle), y+r*Math.sin(angle), 0.8, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+/* ---- Flood fill ---- */
+function hexToRgba(hex,alpha){
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return {r,g,b,a:Math.round(alpha*255)};
+}
+
+function colorsMatch(d,pos,target,tolerance){
+  return Math.abs(d[pos]-target.r)<=tolerance &&
+         Math.abs(d[pos+1]-target.g)<=tolerance &&
+         Math.abs(d[pos+2]-target.b)<=tolerance &&
+         Math.abs(d[pos+3]-target.a)<=tolerance;
+}
+
+function floodFill(ctx,sx,sy,fillRgba){
+  const imgData=ctx.getImageData(0,0,CANVAS_W,CANVAS_H);
+  const d=imgData.data;
+  const pos=(sx+sy*CANVAS_W)*4;
+  const target={r:d[pos],g:d[pos+1],b:d[pos+2],a:d[pos+3]};
+
+  if(colorsMatch(d,pos,fillRgba,0)) return;
+
+  const stack=[[sx,sy]];
+  const visited=new Uint8Array(CANVAS_W*CANVAS_H);
+  const tolerance=30;
+
+  while(stack.length){
+    const [x,y]=stack.pop();
+    if(x<0||x>=CANVAS_W||y<0||y>=CANVAS_H) continue;
+    const p=(x+y*CANVAS_W)*4;
+    if(visited[x+y*CANVAS_W]) continue;
+    if(!colorsMatch(d,p,target,tolerance)) continue;
+    visited[x+y*CANVAS_W]=1;
+    d[p]=fillRgba.r;
+    d[p+1]=fillRgba.g;
+    d[p+2]=fillRgba.b;
+    d[p+3]=fillRgba.a;
+    stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
+  }
+  ctx.putImageData(imgData,0,0);
+}
+
+/* ---- Text tool ---- */
+function showTextInput(x,y){
+  const wrapper=document.getElementById('canvasWrapper');
+  const rect=wrapper.getBoundingClientRect();
+  const scaleX=CANVAS_W/rect.width;
+  const scaleY=CANVAS_H/rect.height;
+
+  const inp=document.getElementById('canvasTextInput');
+  inp.style.left=(x/scaleX)+'px';
+  inp.style.top=(y/scaleY)+'px';
+  inp.style.display='block';
+  inp.style.color=strokeColor;
+  inp.style.fontSize=(strokeSize*3+10)+'px';
+  inp.value='';
+  textX=x; textY=y;
+  textActive=true;
+  setTimeout(()=>inp.focus(),10);
+}
+
+function commitText(){
+  if(!textActive) return;
+  const inp=document.getElementById('canvasTextInput');
+  const text=inp.value;
+  if(text.trim()){
+    const ctx=layers[activeLayerIdx].ctx;
+    pushUndo();
+    ctx.globalCompositeOperation='source-over';
+    ctx.globalAlpha=strokeOpacity;
+    ctx.fillStyle=strokeColor;
+    const fontSize=strokeSize*3+10;
+    ctx.font=`${fontSize}px Lora, Georgia, serif`;
+    ctx.fillText(text, textX, textY+fontSize);
+    updateLayerThumbnails();
+    scheduleSave();
+  }
+  inp.style.display='none';
+  inp.value='';
+  textActive=false;
+}
+
+document.getElementById('canvasTextInput').addEventListener('keydown',function(e){
+  if(e.key==='Escape') commitText();
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); commitText(); }
+});
+
+/* ---- Selection ---- */
+function updateSelectionOverlay(x,y,w,h){
+  const wrapper=document.getElementById('canvasWrapper');
+  const rect=wrapper.getBoundingClientRect();
+  const scaleX=CANVAS_W/rect.width;
+  const scaleY=CANVAS_H/rect.height;
+  const ov=document.getElementById('selectionOverlay');
+  const nx=Math.min(x,x+w)/scaleX;
+  const ny=Math.min(y,y+h)/scaleY;
+  const nw=Math.abs(w)/scaleX;
+  const nh=Math.abs(h)/scaleY;
+  ov.style.left=nx+'px';
+  ov.style.top=ny+'px';
+  ov.style.width=nw+'px';
+  ov.style.height=nh+'px';
+  ov.style.display='block';
+}
+
+function clearSelectionOverlay(){
+  document.getElementById('selectionOverlay').style.display='none';
+  selActive=false;
+  selImageData=null;
+}
+
+function commitSelection(){
+  clearSelectionOverlay();
+}
+
+/* ---- Undo / Redo ---- */
+function pushUndo(){
+  const l=layers[activeLayerIdx];
+  if(!undoStacks[l.id]) undoStacks[l.id]=[];
+  undoStacks[l.id].push(l.ctx.getImageData(0,0,CANVAS_W,CANVAS_H));
+  if(undoStacks[l.id].length>40) undoStacks[l.id].shift();
+  redoStacks[l.id]=[];
+}
+
+function canvasUndo(){
+  const l=layers[activeLayerIdx];
+  if(!undoStacks[l.id]||!undoStacks[l.id].length) return;
+  redoStacks[l.id]=redoStacks[l.id]||[];
+  redoStacks[l.id].push(l.ctx.getImageData(0,0,CANVAS_W,CANVAS_H));
+  l.ctx.putImageData(undoStacks[l.id].pop(),0,0);
+  updateLayerThumbnails();
+}
+
+function canvasRedo(){
+  const l=layers[activeLayerIdx];
+  if(!redoStacks[l.id]||!redoStacks[l.id].length) return;
+  undoStacks[l.id]=undoStacks[l.id]||[];
+  undoStacks[l.id].push(l.ctx.getImageData(0,0,CANVAS_W,CANVAS_H));
+  l.ctx.putImageData(redoStacks[l.id].pop(),0,0);
+  updateLayerThumbnails();
+}
+
+function clearCurrentLayer(){
+  if(!confirm('Clear this layer? This cannot be undone.')) return;
+  const l=layers[activeLayerIdx];
+  pushUndo();
+  l.ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+  updateLayerThumbnails();
+}
+
+/* ---- Tool setters ---- */
+function setDrawTool(tool){
+  // Commit any active text
+  if(textActive) commitText();
+  // Commit selection
+  if(selActive && tool!=='select') commitSelection();
+
+  drawTool=tool;
+
+  // If shape tool selected, read shape type from select
+  if(tool==='shape'){
+    const sel=document.getElementById('dtShapeSelect');
+    if(sel.value!=='none') shapeType=sel.value;
+  }
+
+  // Update button states
+  ['pen','brush','eraser','fill','text','select','shape'].forEach(t=>{
+    const btn=document.getElementById('dt'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(btn) btn.classList.toggle('active', t===tool);
+  });
+
+  // Update cursor
+  updateCursor();
+}
+
+function updateCursor(){
+  const container=document.getElementById('canvasContainer');
+  if(!container) return;
+  const cursors={
+    pen:'crosshair',
+    brush:'crosshair',
+    eraser:'cell',
+    fill:'cell',
+    text:'text',
+    select:'default',
+    shape:'crosshair'
+  };
+  container.style.cursor=cursors[drawTool]||'crosshair';
+}
+
+function updateBrushType(val){
+  brushType=val;
+}
+
+function updateStrokeSize(val){
+  strokeSize=parseInt(val);
+  document.getElementById('dtSizeVal').textContent=val;
+}
+
+function updateOpacity(val){
+  strokeOpacity=parseInt(val)/100;
+  document.getElementById('dtOpacityVal').textContent=val+'%';
+}
+
+function updateStrokeColor(val){
+  strokeColor=val;
+}
+
+function updateFillColor(val){
+  fillColor=val;
+}
+
+function quickColor(hex){
+  strokeColor=hex;
+  document.getElementById('dtStrokeColor').value=hex;
+}
+
+function toggleFillShape(){
+  fillShapes=!fillShapes;
+  document.getElementById('dtFillShape').classList.toggle('active',fillShapes);
+}
+
+/* ---- Photo import ---- */
+function importCanvasPhoto(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      pushUndo();
+      const ctx=layers[activeLayerIdx].ctx;
+      // Scale to fit canvas while maintaining aspect ratio
+      const scale=Math.min(CANVAS_W/img.width, CANVAS_H/img.height, 1);
+      const w=img.width*scale;
+      const h=img.height*scale;
+      const x=(CANVAS_W-w)/2;
+      const y=(CANVAS_H-h)/2;
+      ctx.drawImage(img,x,y,w,h);
+      updateLayerThumbnails();
+      scheduleSave();
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value='';
+}
+
+/* ---- Export canvas as PNG ---- */
+function exportCanvas(){
+  const n=notes.find(x=>x.id===activeId);
+  const title=(n&&n.title)||'canvas-note';
+
+  // Flatten all visible layers
+  const flat=document.createElement('canvas');
+  flat.width=CANVAS_W; flat.height=CANVAS_H;
+  const fctx=flat.getContext('2d');
+  fctx.fillStyle='#ffffff';
+  fctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+  layers.forEach(l=>{
+    if(l.visible) fctx.drawImage(l.canvas,0,0);
+  });
+
+  const url=flat.toDataURL('image/png');
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=title.replace(/[^a-z0-9]/gi,'_').toLowerCase()+'.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/* ---- Keyboard shortcuts ---- */
+let shortcuts = {
+  newText: { key: 'k', ctrl: true },
+  newCanvas: { key: 'l', ctrl: true },
+	  undo: { key: 'z', ctrl: true },
+	  redo: { key: 'y', ctrl: true },
+	  save: { key: 's', ctrl: true },
+	  deleteNote: { key: 'o', ctrl: true },
+	  pen: { key: 'p' },
+  brush: { key: 'b' },
+  eraser: { key: 'e' },
+  fill: { key: 'f' },
+  text: { key: 't' },
+  select: { key: 's' },
+  shape: { key: 'g' }
+};
+
+function loadShortcuts() {
+  const saved = localStorage.getItem('inkwell_shortcuts');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      shortcuts = { ...shortcuts, ...parsed };
+    } catch(e) {}
+  }
+}
+loadShortcuts();
+
+function checkShortcut(e, action) {
+  const s = shortcuts[action];
+  if (!s) return false;
+  const keyMatch = e.key.toLowerCase() === s.key.toLowerCase();
+  const ctrlMatch = !!s.ctrl === (e.ctrlKey || e.metaKey);
+  const altMatch = !!s.alt === e.altKey;
+  const shiftMatch = !!s.shift === e.shiftKey;
+  return keyMatch && ctrlMatch && altMatch && shiftMatch;
+}
+
+document.addEventListener('keydown', function(e) {
+  if (checkShortcut(e, 'newText')) { e.preventDefault(); newNote(); return; }
+  if (checkShortcut(e, 'newCanvas')) { e.preventDefault(); newCanvasNote(); return; }
+
+  const n = notes.find(x => x.id === activeId);
+  if (!n) return;
+
+  if (n.type === 'canvas' && document.getElementById('canvasNoteContent').style.display !== 'none') {
+    if (document.activeElement === document.getElementById('canvasTextInput')) return;
+
+    if (checkShortcut(e, 'undo')) { e.preventDefault(); canvasUndo(); return; }
+    if (checkShortcut(e, 'redo')) { e.preventDefault(); canvasRedo(); return; }
+    if (checkShortcut(e, 'save')) { e.preventDefault(); save(); return; }
+    if (checkShortcut(e, 'deleteNote')) { e.preventDefault(); deleteCurrentNote(); return; }
+    
+    if (checkShortcut(e, 'pen')) { setDrawTool('pen'); return; }
+    if (checkShortcut(e, 'brush')) { setDrawTool('brush'); return; }
+    if (checkShortcut(e, 'eraser')) { setDrawTool('eraser'); return; }
+    if (checkShortcut(e, 'fill')) { setDrawTool('fill'); return; }
+    if (checkShortcut(e, 'text')) { setDrawTool('text'); return; }
+    if (checkShortcut(e, 'select')) { setDrawTool('select'); return; }
+    if (checkShortcut(e, 'shape')) { setDrawTool('shape'); return; }
+  } else if (n.type === 'text') {
+    if (checkShortcut(e, 'save')) { e.preventDefault(); save(); return; }
+    if (checkShortcut(e, 'deleteNote')) { e.preventDefault(); deleteCurrentNote(); return; }
+  }
+});
+
+function newCanvasNote() {
+  const n = { id: uid(), title: '', body: '', checklist: [], tags: [], type: 'canvas', created: Date.now(), updated: Date.now() };
+  notes.unshift(n);
+  save();
+  renderList();
+  openNote(n.id);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+initSidebar();
+load();
+</script>
+</body>
+</html>
